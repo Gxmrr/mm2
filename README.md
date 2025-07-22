@@ -66,4 +66,4 @@ end
         wait(1)
         humanoid.Health = 0
     end
-end)
+end) 
