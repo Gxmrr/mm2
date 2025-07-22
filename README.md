@@ -1,64 +1,85 @@
--- MM2 Auto-Reset with GUI (for KRNL)
+-- MM2 Auto Reset with GUI when Coins >= 40 (KRNL version)
 
--- === Создаём простое GUI-окно ===
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MM2AutoResetGUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+-- === Создание GUI интерфейса ===
+local gui = Instance.new("ScreenGui", game.Players.LocalPlayer:WaitForChild("PlayerGui"))
+gui.Name = "MM2AutoResetGUI"
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 200, 0, 60)
-Frame.Position = UDim2.new(0, 10, 0, 10)
-Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Frame.BorderSizePixel = 0
-Frame.BackgroundTransparency = 0.2
-Frame.Parent = ScreenGui
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 200, 0, 60)
+frame.Position = UDim2.new(0, 10, 0, 10)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BackgroundTransparency = 0.1
+frame.BorderSizePixel = 0
 
-local Title = Instance.new("TextLabel")
-Title.Text = "🔁 MM2 Auto-Reset"
-Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 16
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Size = UDim2.new(1, 0, 0.5, 0)
-Title.BackgroundTransparency = 1
-Title.Parent = Frame
+local title = Instance.new("TextLabel", frame)
+title.Text = "🔁 MM2 Auto Reset"
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 16
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Size = UDim2.new(1, 0, 0.5, 0)
+title.BackgroundTransparency = 1
 
-local Status = Instance.new("TextLabel")
-Status.Text = "⏳ Ожидание монет..."
-Status.Font = Enum.Font.SourceSans
-Status.TextSize = 14
-Status.TextColor3 = Color3.fromRGB(180, 255, 180)
-Status.Position = UDim2.new(0, 0, 0.5, 0)
-Status.Size = UDim2.new(1, 0, 0.5, 0)
-Status.BackgroundTransparency = 1
-Status.Parent = Frame
+local status = Instance.new("TextLabel", frame)
+status.Text = "⏳ Ожидание начала..."
+status.Font = Enum.Font.SourceSans
+status.TextSize = 14
+status.TextColor3 = Color3.fromRGB(200, 255, 200)
+status.Position = UDim2.new(0, 0, 0.5, 0)
+status.Size = UDim2.new(1, 0, 0.5, 0)
+status.BackgroundTransparency = 1
 
--- === Логика авто-ресета ===
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
+-- === Основная логика авто-ресета ===
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
-local coinUI
-repeat
-    coinUI = player:FindFirstChild("PlayerGui"):FindFirstChild("MainGUI")
-    wait(1)
-until coinUI and coinUI:FindFirstChild("CoinContainer") and coinUI.CoinContainer:FindFirstChild("Coins")
+-- функция для поиска элемента с монетами в MM2
+local function getCoinLabel()
+    local gui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not gui then return nil end
 
-local coinTextLabel = coinUI.CoinContainer.Coins
+    local main = gui:FindFirstChild("MainGUI")
+    if not main then return nil end
 
-while true do
-    local text = coinTextLabel.Text
-    local coins = tonumber(text:match("%d+"))
-    if coins then
-        Status.Text = "💰 Монеты: " .. coins
-        if coins >= 40 then
-            Status.Text = "✅ 40 монет! Ресет..."
-            wait(1)
-            humanoid.Health = 0
-            break
-        end
-    else
-        Status.Text = "❌ Монеты не найдены"
-    end
-    wait(0.5)
+    local container = main:FindFirstChild("CoinContainer")
+    if not container then return nil end
+
+    local label = container:FindFirstChild("Coins")
+    return label
 end
+
+-- ожидание старта раунда и появления монет
+local coinLabel = nil
+repeat
+    status.Text = "🔍 Поиск монет..."
+    coinLabel = getCoinLabel()
+    wait(1)
+until coinLabel
+
+status.Text = "💰 Монеты: 0"
+
+-- отслеживаем монеты и делаем ресет на 40
+local humanoid = LocalPlayer.Character:WaitForChild("Humanoid")
+
+local function extractCoins(text)
+    local num = text:match("%d+")
+    return tonumber(num) or 0
+end
+
+-- следим за обновлением текста
+local connection
+connection = game:GetService("RunService").RenderStepped:Connect(function()
+    if not coinLabel or not coinLabel:IsDescendantOf(game) then
+        status.Text = "⏳ Ожидание новой катки..."
+        return
+    end
+
+    local coins = extractCoins(coinLabel.Text)
+    status.Text = "💰 Монеты: " .. tostring(coins)
+
+    if coins >= 40 then
+        status.Text = "✅ 40 монет! Ресет..."
+        connection:Disconnect()
+        wait(1)
+        humanoid.Health = 0
+    end
+end)
